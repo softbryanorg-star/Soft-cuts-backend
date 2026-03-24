@@ -28,8 +28,7 @@ export const handleIncomingMessage = async (req, res) => {
       reply = `Welcome to Soft Cuts Barbershop 💈
 
 1. View Services
-2. Book Appointment
-3. Talk to Human`;
+2. Book Appointment`;
     }
 
     // SERVICES
