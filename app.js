@@ -40,6 +40,7 @@ app.listen(PORT, () => {
 //✅ 1. Enable CORS before everything else
  const allowedOrigins = [
   "http://localhost:5173",
+  "https://soft-cuts.vercel.app/",
 ];
   
 app.use(
