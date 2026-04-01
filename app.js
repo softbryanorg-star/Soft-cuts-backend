@@ -15,7 +15,6 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
@@ -40,7 +39,7 @@ app.listen(PORT, () => {
 //✅ 1. Enable CORS before everything else
  const allowedOrigins = [
   "http://localhost:5173",
-  "https://soft-cuts.vercel.app/",
+  "https://soft-cuts.vercel.app"
 ];
   
 app.use(
