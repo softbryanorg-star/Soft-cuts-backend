@@ -3,17 +3,23 @@ import twilio from "twilio";
 
 const { MessagingResponse } = twilio.twiml;
 
-// In-memory session (MVP)
+// In-memory session
 const sessions = new Map();
+
+// Pricing
+const prices = {
+  haircut: 3000,
+  beard: 1500,
+  home: 10000,
+};
 
 export const handleIncomingMessage = async (req, res) => {
   try {
-    const message = req.body.Body?.trim().toLowerCase();
+    const message = req.body.Body?.trim();
+    const lower = message?.toLowerCase();
     const from = req.body.From;
 
-    if (!from) {
-      return res.sendStatus(400);
-    }
+    if (!from) return res.sendStatus(400);
 
     if (!sessions.has(from)) {
       sessions.set(from, { step: 0 });
@@ -23,7 +29,7 @@ export const handleIncomingMessage = async (req, res) => {
     let reply = "";
 
     // START
-    if (message === "hi" || message === "hello") {
+    if (lower === "hi" || lower === "hello") {
       user.step = 1;
       reply = `Welcome to Soft Cuts Barbershop 💈
 
@@ -33,7 +39,7 @@ export const handleIncomingMessage = async (req, res) => {
     }
 
     // SERVICES
-    else if (message === "1") {
+    else if (lower === "1") {
       reply = `Our Services:
 
 ✂️ Haircut - ₦3,000
@@ -44,59 +50,131 @@ Reply 2 to book`;
     }
 
     // START BOOKING
-    else if (message === "2") {
+    else if (lower === "2") {
       user.step = 2;
+      reply = "Enter your name:";
+    }
+
+    // NAME
+    else if (user.step === 2) {
+      user.name = message;
+      user.step = 3;
       reply = "Enter service (Haircut / Beard / Home):";
     }
 
-    // SERVICE INPUT
-    else if (user.step === 2) {
-      user.service = message;
-      user.step = 3;
+    // SERVICE
+    else if (user.step === 3) {
+      user.service = lower;
+      user.step = 4;
       reply = "Enter date (e.g. 20 March):";
     }
 
-    // DATE INPUT
-    else if (user.step === 3) {
+    // DATE
+    else if (user.step === 4) {
       user.date = message;
-      user.step = 4;
+      user.step = 5;
       reply = "Enter time (e.g. 2pm):";
     }
 
-    // FINAL STEP → SAVE TO DB
-    else if (user.step === 4) {
+    // TIME
+    else if (user.step === 5) {
       user.time = message;
+      user.step = 6;
+      reply = "Type service type:\n1. Shop Visit\n2. Home Service";
+    }
 
-      await Booking.create({
-        phone: from,
-        service: user.service,
-        date: user.date,
-        time: user.time,
-      });
+    // TYPE
+    else if (user.step === 6) {
+      if (lower === "1") {
+        user.type = "Shop Visit";
+        user.address = "N/A";
+        user.step = 8;
+      } else if (lower === "2") {
+        user.type = "Home Service";
+        user.step = 7;
+        reply = "Enter your full address 📍:";
+        return sendReply(res, reply);
+      } else {
+        reply = "Reply 1 for Shop Visit or 2 for Home Service";
+        return sendReply(res, reply);
+      }
 
-      reply = `✅ Booking Confirmed!
+      // skip to confirmation
+      const price = getPrice(user.service);
+      user.price = price;
 
+      user.step = 9;
+      reply = `💰 Price: ₦${price}
+
+Reply YES to confirm booking.`;
+    }
+
+    // ADDRESS (ONLY FOR HOME)
+    else if (user.step === 7) {
+      user.address = message;
+      const price = getPrice(user.service);
+      user.price = price;
+
+      user.step = 9;
+      reply = `💰 Price: ₦${price}
+
+Reply YES to confirm booking.`;
+    }
+
+    // CONFIRMATION
+    else if (user.step === 9) {
+      if (lower === "yes") {
+        await Booking.create({
+          phone: from,
+          name: user.name,
+          service: user.service,
+          date: user.date,
+          time: user.time,
+          type: user.type,
+          address: user.address,
+        });
+
+        reply = `✅ Booking Confirmed!
+
+Name: ${user.name}
 Service: ${user.service}
 Date: ${user.date}
 Time: ${user.time}
+Type: ${user.type}
+${user.type === "Home Service" ? `Address: ${user.address}` : ""}
 
-You’re booked 🙌`;
+Our barber will contact you shortly 🙌`;
 
-      sessions.delete(from);
+        sessions.delete(from);
+      } else {
+        reply = "Reply YES to confirm your booking.";
+      }
     }
 
     else {
       reply = "Type 'Hi' to start booking.";
     }
 
-    const twiml = new MessagingResponse();
-    twiml.message(reply);
-
-    res.writeHead(200, { "Content-Type": "text/xml" });
-    res.end(twiml.toString());
+    return sendReply(res, reply);
 
   } catch (error) {
     console.error("Controller error:", error.message);
     res.sendStatus(500);
   }
 };
+
+// HELPERS
+function getPrice(service) {
+  if (service.includes("hair")) return prices.haircut;
+  if (service.includes("beard")) return prices.beard;
+  if (service.includes("home")) return prices.home;
+  return 3000;
+}
+
+function sendReply(res, message) {
+  const twiml = new MessagingResponse();
+  twiml.message(message);
+
+  res.writeHead(200, { "Content-Type": "text/xml" });
+  res.end(twiml.toString());
+}

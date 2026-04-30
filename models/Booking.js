@@ -6,6 +6,11 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+     // ✅ NEW FIELD
+    name: {
+      type: String,
+      default: "",
+    },
     service: {
       type: String,
       required: true,
@@ -17,6 +22,17 @@ const bookingSchema = new mongoose.Schema(
     time: {
       type: String,
       required: true,
+    },
+    // ✅ NEW FIELD
+    type: {
+      type: String,
+      enum: ["Shop Visit", "Home Service"],
+      default: "Shop Visit",
+    },
+// ✅ NEW FIELD
+    address: {
+      type: String,
+      default: "",
     },
   },
   {
